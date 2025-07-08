@@ -1,11 +1,18 @@
 import { Submission } from 'snoowrap';
 import { RedditPost } from '../types/redditPost';
 
-export function filterPost(post: Submission, keywords: string[], minScore: number): RedditPost | null {
+export function filterPost(
+  post: Submission,
+  keywords: string[],
+  minScore: number
+): RedditPost | null {
   if (post.over_18 || post.is_video || post.stickied || post.score < minScore) return null;
 
-  const text = `${post.title} ${post.selftext}`.toLowerCase();
-  const matchedKeywords = keywords.filter(k => text.includes(k.toLowerCase()));
+  const content = `${post.title} ${post.selftext}`.toLowerCase();
+  const matchedKeywords = keywords.filter((k) =>
+    content.includes(k.toLowerCase())
+  );
+
   if (matchedKeywords.length === 0) return null;
 
   return {

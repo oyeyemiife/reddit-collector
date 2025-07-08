@@ -1,8 +1,8 @@
-import snoowrap from 'snoowrap';
-import { config } from '../config/env';
-import { RedditPost } from '../types/redditPost';
-import { filterPost } from '../utils/filterPosts';
-import { problemQueue } from '../queue/problemQueue';
+import snoowrap from "snoowrap";
+import { config } from "../config/env";
+import { filterPost } from "../utils/filterPosts";
+import { problemQueue } from "../queue/problemQueue";
+import { RedditPost } from "../types/redditPost";
 
 const reddit = new snoowrap({
   userAgent: process.env.REDDIT_USER_AGENT!,
@@ -12,28 +12,54 @@ const reddit = new snoowrap({
   password: process.env.REDDIT_PASSWORD!,
 });
 
-export async function collectRedditPosts() {
+export async function collectRedditPosts(): Promise<void> {
   let totalFetched = 0;
-  let matched = 0;
-  let queued = 0;
+  let totalMatched = 0;
+  let totalQueued = 0;
 
-  for (const sub of config.subreddits) {
-    const posts = await reddit.getSubreddit(sub).getTop({ time: 'day', limit: config.fetchLimit });
-    totalFetched += posts.length;
+  for (const subreddit of config.subreddits) {
+    try {
+      console.log(`Fetching from r/${subreddit}...`);
 
-    for (const post of posts) {
-      const match = filterPost(post, config.keywords, config.minScore);
-      if (match) {
-        matched++;
-        try {
-          await problemQueue.add('problem-post', match);
-          queued++;
-        } catch (err) {
-          console.error(`Failed to queue post: ${post.id}`, err);
+      const posts = await reddit
+        .getSubreddit(subreddit)
+        .getHot({ limit: config.fetchLimit });
+
+      totalFetched += posts.length;
+
+      const matchedPosts: RedditPost[] = [];
+
+      for (const post of posts) {
+        const filtered = filterPost(post, config.keywords, config.minScore);
+        if (filtered) {
+          matchedPosts.push(filtered);
         }
       }
+
+      totalMatched += matchedPosts.length;
+
+      const jobs = matchedPosts.map((post) =>
+        problemQueue.add("problem-post", post)
+      );
+
+      await Promise.all(jobs);
+      totalQueued += jobs.length;
+
+      console.log(
+        `r/${subreddit}: fetched ${posts.length}, matched ${matchedPosts.length}, queued ${jobs.length}`
+      );
+    } catch (err: any) {
+      console.error(`Error fetching r/${subreddit}:`, err.message);
     }
   }
 
-  console.log(`Fetched: ${totalFetched} | Matched: ${matched} | Queued: ${queued}`);
+  console.log(`\n- Summary`);
+  console.log(`Fetched: ${totalFetched}`);
+  console.log(`Matched: ${totalMatched}`);
+  console.log(`Queued: ${totalQueued}`);
+}
+if (require.main === module) {
+  collectRedditPosts()
+    .then(() => console.log("Collection complete"))
+    .catch((err) => console.error("Collection failed:", err));
 }

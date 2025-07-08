@@ -1,11 +1,16 @@
-import { Queue } from 'bullmq';
-import { createClient } from 'redis';
+import { Queue } from "bullmq";
 
-const redisConnection = {
-  host: process.env.REDIS_HOST,
-  port: Number(process.env.REDIS_PORT),
-};
-
-export const problemQueue = new Queue('problem-posts', {
-  connection: redisConnection,
+export const problemQueue = new Queue("problem-posts", {
+  connection: {
+    host: process.env.REDIS_HOST,
+    port: Number(process.env.REDIS_PORT),
+  },
+  defaultJobOptions: {
+    removeOnComplete: true,
+    attempts: 3,
+    backoff: {
+      type: "exponential",
+      delay: 500,
+    },
+  },
 });
