@@ -22,26 +22,34 @@ export async function collectRedditPosts(): Promise<void> {
       console.log(`Fetching from r/${subreddit}...`);
 
       const posts = await reddit
-        .getSubreddit(subreddit)
-        .getHot({ limit: config.fetchLimit });
+      .getSubreddit(subreddit)
+      .getTop({ time: "day", limit: config.fetchLimit });
 
       totalFetched += posts.length;
 
       const matchedPosts: RedditPost[] = [];
 
       for (const post of posts) {
+        const content = `${post.title} ${post.selftext}`.toLowerCase();
+        console.log(` Post: "${post.title}"`);
+        console.log(` Score: ${post.score}`);
+        console.log(` Text: ${content.slice(0, 100)}...`);
+
         const filtered = filterPost(post, config.keywords, config.minScore);
+
         if (filtered) {
+          console.log(" Matched:", filtered.title);
           matchedPosts.push(filtered);
+        } else {
+          console.log(" Not matched");
         }
       }
-
       totalMatched += matchedPosts.length;
 
-      const jobs = matchedPosts.map((post) =>
-        problemQueue.add("problem-post", post)
-      );
-
+      const jobs = matchedPosts.map((post) => {
+        console.log("Queuing:", post.title);
+        return problemQueue.add("problem-post", post);
+      });
       await Promise.all(jobs);
       totalQueued += jobs.length;
 

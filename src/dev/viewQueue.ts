@@ -1,27 +1,31 @@
-import { Queue } from "bullmq";
-import { config } from "../config/env";
-
-const problemQueue = new Queue("problem-posts", {
-  connection: {
-    host: process.env.REDIS_HOST,
-    port: Number(process.env.REDIS_PORT),
-  },
-});
+import { problemQueue } from "../queue/problemQueue";
+import dotenv from "dotenv";
+dotenv.config();
 
 (async () => {
-  const jobs = await problemQueue.getJobs(["completed", "waiting", "active"], 0, 10);
+  console.log("Connecting to Redis at:", process.env.REDIS_HOST, process.env.REDIS_PORT);
+  try {
+    const jobs = await problemQueue.getJobs(["completed", "waiting", "active"], 0, 10);
 
-  if (!jobs.length) {
-    console.log(" No jobs found in problem-posts queue.");
-    return;
+    if (!jobs.length) {
+      console.log(" No jobs found in problem-posts queue.");
+      return;
+    }
+
+    jobs.forEach((job, i) => {
+      const post = job.data;
+      console.log(`\n [${i + 1}] ${post.title}`);
+      console.log(` Author: ${post.author}`);
+      console.log(` Subreddit: ${post.subreddit}`);
+      console.log(` Comments: ${post.numComments}`);
+      console.log(` Link: ${post.permalink}`);
+      console.log(` Score: ${post.score}`);
+      if (post.matchedKeywords) {
+        console.log(` Matched Keywords: ${post.matchedKeywords.join(", ")}`);
+      }
+    });
+  } finally {
+    await problemQueue.close();
+    console.log("Redis connection closed.");
   }
-
-  jobs.forEach((job, i) => {
-    console.log(`\n Job ${i + 1}:`);
-    console.log(`Title: ${job.data.title}`);
-    console.log(`Subreddit: ${job.data.subreddit}`);
-    console.log(`Score: ${job.data.score}`);
-    console.log(`Permalink: ${job.data.permalink}`);
-    console.log(`Matched Keywords: ${job.data.matchedKeywords?.join(", ")}`);
-  });
 })();

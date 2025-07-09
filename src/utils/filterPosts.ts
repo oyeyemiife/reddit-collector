@@ -1,5 +1,7 @@
 import { Submission } from 'snoowrap';
 import { RedditPost } from '../types/redditPost';
+import dotenv from "dotenv";
+dotenv.config();
 
 export function filterPost(
   post: Submission,
@@ -13,7 +15,23 @@ export function filterPost(
     content.includes(k.toLowerCase())
   );
 
-  if (matchedKeywords.length === 0) return null;
+  if (post.score < minScore) {
+  console.log(" Rejected: score too low");
+  return null;
+}
+if (post.over_18) {
+  console.log(" Rejected: NSFW");
+  return null;
+}
+if (post.stickied) {
+  console.log(" Rejected: Promoted post");
+  return null;
+}
+if (matchedKeywords.length === 0) {
+  console.log(" Rejected: No keyword match");
+  return null;
+}
+
 
   return {
     id: post.id,
